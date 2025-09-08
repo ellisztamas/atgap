@@ -1,0 +1,14 @@
+name: atgap
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - bioconda::bwa
+  - bioconda::hifiasm
+  - conda-forge::gawk
+  - bioconda::ragtag
+  - conda-forge::r-base
+  - conda-forge::r-pafr
+  - bioconda::samtools
+  - bioconda::snakemake
+  - bioconda::snakemake-executor-plugin-slurm
