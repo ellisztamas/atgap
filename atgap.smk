@@ -1,5 +1,8 @@
 import os
 
+# FASTA file giving the TAIR10 assembly, with repetitive regions masked as missing.
+# tair10_masked = workflow.basedir + "/TAIR10.hard_masked.fa.gz"
+
 # Get input directory from config or command line
 input_dir = config.get("input_dir", "input")
 
@@ -13,30 +16,31 @@ SAMPLES = sorted(set(fastq_samples) | set(bam_samples))
 rule all:
     input:
         expand(
-            "read_alignment/{sample}_aligned.bam",
+            'scaffolded_contigs/{sample}/{sample}_scaffolded_autosomes.fasta',
+            # "read_alignment/{sample}_aligned.bam",
             sample=SAMPLES
             )
 
-rule map_reads_to_assembly:
-    input:
-        genome="scaffolded_contigs/{sample}/{sample}_scaffolded_autosomes.fasta",
-        fastq="fastq/{sample}.fastq",
-    output:
-        "read_alignment/{sample}_aligned.bam",
-    log:
-        "read_alignment/{sample}.log",
-    resources:
-        nodes=1,
-        tasks=1,
-        cpus_per_task=2,
-        mem_mb_per_cpu=1024,
-        time='04:00:00',
-    threads: 2,
-    shell:
-        """
-        bwa index {input.genome}
-        bwa mem -t {threads} {input.genome} {input.fastq} > {output}
-        """
+# rule map_reads_to_assembly:
+#     input:
+#         genome="scaffolded_contigs/{sample}/{sample}_scaffolded_autosomes.fasta",
+#         fastq="fastq/{sample}.fastq",
+#     output:
+#         "read_alignment/{sample}_aligned.bam",
+#     log:
+#         "read_alignment/{sample}.log",
+#     resources:
+#         nodes=1,
+#         tasks=1,
+#         cpus_per_task=38,
+#         mem_mb_per_cpu=4096,
+#         runtime=24*60,
+#     threads: 38,
+#     shell:
+#         """
+#         bwa index {input.genome}
+#         bwa mem -t {threads} {input.genome} {input.fastq} > {output}
+#         """
 
 rule extract_autosomes:
     input:
@@ -47,6 +51,10 @@ rule extract_autosomes:
         "scaffolded_contigs/{sample}/{sample}_extract_autosomes.log",
     params:
         chr_names="Chr1_RagTag Chr2_RagTag Chr3_RagTag Chr4_RagTag Chr5_RagTag",
+    resources:
+        qos='rapid',
+        mem_mb=512,
+        runtime=5,
     shell:
         """
         samtools faidx {input}
@@ -55,12 +63,9 @@ rule extract_autosomes:
         samtools faidx {output}
         """
 
-# FASTA file giving the TAIR10 assembly, with repetitive regions masked as missing.
-tair10_masked = workflow.basedir + "/TAIR10.hard_masked.fa"
-
 rule scaffold_contigs:
     input:
-        genome=tair10_masked,
+        genome=workflow.basedir + "/TAIR10.hard_masked.fa",
         contigs="unscaffolded_contigs/{sample}_unscaffolded_contigs.fasta",
     output:
         "scaffolded_contigs/{sample}/ragtag.scaffold.fasta",
@@ -69,6 +74,10 @@ rule scaffold_contigs:
         "scaffolded_contigs/{sample}/{sample}_ragtag.log",
     params:
         prefix = "scaffolded_contigs/{sample}"
+    resources:
+        qos='rapid',
+        mem_mb=lambda wildcards, attempt: 2048 * attempt,
+        runtime=60,
     shell:
         """
         # If you have run RagTag before and there are files left over, RagTag seems to
@@ -96,6 +105,10 @@ rule gfa_to_fasta:
         "hifiasm/{sample}.bp.p_ctg.gfa",
     output:
         "unscaffolded_contigs/{sample}_unscaffolded_contigs.fasta",
+    resources:
+        qos='rapid',
+        mem_mb=512,
+        runtime=5,
     shell:
         """
         awk '/^S/{{print ">"$2; print $3}}' {input} > {output}
@@ -112,12 +125,13 @@ rule hifiasm:
         outdir = "hifiasm",
         prefix = "hifiasm/{sample}"
     resources:
+        qos='medium',
         nodes=1,
         tasks=1,
-        cpus_per_task=2,
-        mem_mb_per_cpu=4096,
-        time='24:00:00',
-    threads: 2,
+        cpus_per_task=38,
+        mem_mb_per_cpu=lambda wildcards, attempt: 4096 * attempt,
+        runtime=24*60,
+    threads: 38,
     shell:
         """
         mkdir -p {params.outdir}
@@ -135,6 +149,10 @@ rule collect_fastq:
         f"{input_dir}/{{sample}}.fastq"
     output:
         temp("fastq/{sample}.fastq")
+    resources:
+        qos='rapid',
+        mem_mb=512,
+        runtime=5,
     shell:
         "ln -s -f $(realpath {input}) {output}"
 
@@ -144,5 +162,23 @@ rule bam_to_fastq:
         f"{input_dir}/{{sample}}.bam"
     output:
         temp("fastq/{sample}.fastq")
+    resources:
+        qos='rapid',
+        mem_mb=1048,
+        runtime=60,
     shell:
         "samtools fastq {input} > {output}"
+
+rule unzip_ref_genome:
+    input:
+        workflow.basedir + "/TAIR10.hard_masked.fa.gz",
+    output:
+        workflow.basedir + "/TAIR10.hard_masked.fa",
+    resources:
+        qos='rapid',
+        mem_mb=1048,
+        runtime=60,
+    shell:
+        """
+        gzip -dc {input} > {output}
+        """
