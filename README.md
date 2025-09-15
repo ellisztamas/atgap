@@ -16,6 +16,8 @@ A snakemake pipeline for assembling *Arabidopsis thaliana* genomes from PacBio H
       - [Reference genome](#reference-genome)
     - [Output files](#output-files)
   - [Usage](#usage)
+    - [Set up](#set-up)
+    - [Run the pipeline](#run-the-pipeline)
   - [Acknowledgements](#acknowledgements)
 
 ## Overview
@@ -88,6 +90,15 @@ If you want to map to a different reference genome, it is probably easiest to ch
     * This also includes a file ending with `_scaffolded_autosomes.fasta` which is the assembled autosomes excluding unscaffolded contigas, with keys corrected to remove the `_RagTag` suffix. **This is probably the file you are most interested in.**
 
 ## Usage
+
+### Set up
+
+The pipeline is designed to submit individual steps to the CLIP cluster via the SLURM scheduler, so you only need to run the command to start the pipeline in a terminal (see below).
+
+However, as the pipeline will take a long time, you should probably run this inside a `tmux` window so that the window stays active, even if your local machine goes to sleep.
+([Here](https://www.howtogeek.com/671422/how-to-use-tmux-on-linux-and-why-its-better-than-screen/) is a tutorial on getting started with `tmux`).
+
+### Run the pipeline
 
 Below is an example script to run the pipeline via the SLURM job scheduler.
 This assumes that:
